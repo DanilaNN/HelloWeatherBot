@@ -1,16 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
+
+// One connection to database
 
 type MsgType int
 
@@ -19,11 +17,6 @@ const (
 	Switch          = 1
 	Default         = 2
 )
-
-type Coordinates struct {
-	lon float64
-	lat float64
-}
 
 func main() {
 	createTables()
@@ -148,32 +141,9 @@ func main() {
 					continue
 				}
 				// fmt.Printf("Coordinates: lon=%v, lat=%v\n", coord.lon, coord.lat)
-				client := &http.Client{}
-				req_str := fmt.Sprintf("https://api.weather.yandex.ru/v2/informers?lat=%v&lon=%v&[lang=ru_RU]", coord.lat, coord.lon)
-				fmt.Printf("request = %v", req_str)
-				req, err := http.NewRequest("GET", req_str, nil)
-				if err != nil {
-					fmt.Printf("Bad Link\n")
-				}
-				req.Header.Add("X-Yandex-API-Key", "44616025-9b90-4b28-8b90-90afef470b2f")
-				resp, err := client.Do(req)
-				if err != nil {
-					fmt.Printf("Bad request\n")
-				}
-				contents, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Fatal(err)
-				}
-				var sr SearchResults
-				err = json.Unmarshal(contents, &sr)
-				if err != nil {
-					panic(err)
-				}
-				var w_info WeatherInfo
-				err = json.Unmarshal(sr.Fact, &w_info)
-				if err != nil {
-					panic(err)
-				}
+
+				weatherInfo := getWeather(coord)
+
 				b.Reset()
 				city_name, err := getCityName(update.Message.Chat.ID)
 				if err != nil {
@@ -182,13 +152,13 @@ func main() {
 					b.WriteString("По данным Яндекс.Погоды в городе: ")
 					b.WriteString(city_name)
 					b.WriteString("\nTемпература: ")
-					b.WriteString(strconv.Itoa(w_info.Temp))
+					b.WriteString(strconv.Itoa(weatherInfo.temp))
 					b.WriteString(" C\n")
 					b.WriteString("Ощущается как: ")
-					b.WriteString(strconv.Itoa(w_info.Feels_like))
+					b.WriteString(strconv.Itoa(weatherInfo.feelsLike))
 					b.WriteString(" C\n")
 					b.WriteString("Скорость ветра: ")
-					b.WriteString(fmt.Sprintf("%.1f", w_info.Wind_speed))
+					b.WriteString(fmt.Sprintf("%.1f", weatherInfo.windSpeed))
 					b.WriteString(" м/с\n")
 					b.WriteString("\nХорошего дня!")
 					prevMsgType = Default

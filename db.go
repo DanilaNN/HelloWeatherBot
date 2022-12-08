@@ -195,3 +195,28 @@ func getCities() (map[int]string, error) {
 
 	return out, nil
 }
+
+func getCityNames() ([]string, error) {
+	out := make([]string, 0, MaxCityCnt)
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT name FROM cities")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var city string
+		if err := rows.Scan(&city); err != nil {
+			return nil, err
+		}
+		out = append(out, city)
+	}
+
+	return out, nil
+}
