@@ -153,32 +153,6 @@ func getCityCoordinates(chat_id int64) (Coordinates, error) {
 	return coord, nil
 }
 
-func getCities() (map[int]string, error) {
-	out := make(map[int]string)
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	rows, err := db.Query("SELECT id, name FROM cities")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var id int
-		var city string
-		if err := rows.Scan(&id, &city); err != nil {
-			return nil, err
-		}
-		out[id] = city
-	}
-
-	return out, nil
-}
-
 func getCityIds() ([]CityId, error) {
 	out := make([]CityId, 0, MaxCityCnt)
 	db, err := sql.Open("postgres", dbInfo)

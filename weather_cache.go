@@ -41,7 +41,7 @@ func (wc *WCache) String() string {
 }
 
 func updateWeatherCache() {
-	for cityId, _ := range weatherCache.cities {
+	for cityId := range weatherCache.cities {
 		weatherCache.cities[cityId] = getWeather(CityInfoMap[cityId].coord)
 	}
 }
