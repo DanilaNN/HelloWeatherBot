@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -8,7 +9,7 @@ const MaxWeatherRequests = 50
 const MaxCityCnt = MaxWeatherRequests
 
 type WCache struct {
-	cities map[string]WValues
+	cities map[CityId]WValues
 }
 
 var (
@@ -16,17 +17,35 @@ var (
 	once         sync.Once
 )
 
-func NewWCache() WCache {
+func initWCache() {
 	once.Do(func() {
-		weatherCache.cities = make(map[string]WValues)
-		cityNames, err := getCityNames()
+		weatherCache.cities = make(map[CityId]WValues)
+		cityNames, err := getCityIds()
 		if err != nil {
 			panic("Can not read List of cities from Database")
 		}
 		for _, val := range cityNames {
 			weatherCache.cities[val] = WValues{}
 		}
+		updateWeatherCache()
 	})
+}
 
-	return weatherCache
+func (wc *WCache) String() string {
+	var out string = ""
+	for cityId, wInfo := range weatherCache.cities {
+		out += fmt.Sprintf("City: %v, temp: %v, fl: %v, wspeed: %v\n",
+			CityInfoMap[cityId].name, wInfo.temp, wInfo.feelsLike, wInfo.windSpeed)
+	}
+	return out
+}
+
+func updateWeatherCache() {
+	for cityId, _ := range weatherCache.cities {
+		weatherCache.cities[cityId] = getWeather(CityInfoMap[cityId].coord)
+	}
+}
+
+func getCachedWeather(userId UserId) WValues {
+	return weatherCache.cities[UserCityMap[userId]]
 }

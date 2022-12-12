@@ -36,12 +36,12 @@ type WeatherInfo struct {
 func getWeather(coord Coordinates) WValues {
 	client := &http.Client{}
 	req_str := fmt.Sprintf("https://api.weather.yandex.ru/v2/informers?lat=%v&lon=%v&[lang=ru_RU]", coord.lat, coord.lon)
-	fmt.Printf("request = %v", req_str)
+	fmt.Printf("Weather Request: lat %v, lon %v\n", coord.lat, coord.lon)
 	req, err := http.NewRequest("GET", req_str, nil)
 	if err != nil {
 		fmt.Printf("Bad Link\n")
 	}
-	req.Header.Add("X-Yandex-API-Key", "44616025-9b90-4b28-8b90-90afef470b2f")
+	req.Header.Add("X-Yandex-API-Key", YANDEX_API_KEY)
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Bad request\n")

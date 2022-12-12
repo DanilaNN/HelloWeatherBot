@@ -153,23 +153,6 @@ func getCityCoordinates(chat_id int64) (Coordinates, error) {
 	return coord, nil
 }
 
-func getCityName(chat_id int64) (string, error) {
-	var name string
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return "", err
-	}
-	defer db.Close()
-
-	row := db.QueryRow(fmt.Sprintf("SELECT name FROM cities WHERE id=(SELECT city_id FROM users WHERE user_id=%v);", chat_id))
-	err = row.Scan(&name)
-	if err != nil {
-		return "", err
-	}
-
-	return name, nil
-}
-
 func getCities() (map[int]string, error) {
 	out := make(map[int]string)
 	db, err := sql.Open("postgres", dbInfo)
@@ -196,27 +179,52 @@ func getCities() (map[int]string, error) {
 	return out, nil
 }
 
-func getCityNames() ([]string, error) {
-	out := make([]string, 0, MaxCityCnt)
+func getCityIds() ([]CityId, error) {
+	out := make([]CityId, 0, MaxCityCnt)
 	db, err := sql.Open("postgres", dbInfo)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT name FROM cities")
+	rows, err := db.Query("SELECT id FROM cities")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var city string
-		if err := rows.Scan(&city); err != nil {
+		var city_id CityId
+		if err := rows.Scan(&city_id); err != nil {
 			return nil, err
 		}
-		out = append(out, city)
+		out = append(out, city_id)
 	}
 
 	return out, nil
+}
+
+func fillCityInfoMap() {
+	db, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		panic("fillCityIdNameMap: Error")
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT id, name, longitude, latitude FROM cities")
+	if err != nil {
+		panic("fillCityIdNameMap: Error")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id CityId
+		var name string
+		var lon float64
+		var lat float64
+		if err := rows.Scan(&id, &name, &lon, &lat); err != nil {
+			panic("fillCityIdNameMap: Error")
+		}
+		CityInfoMap[id] = CityInfo{name, Coordinates{lon, lat}}
+	}
 }
