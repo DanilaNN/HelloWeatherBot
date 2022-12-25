@@ -3,26 +3,35 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 
 	_ "github.com/lib/pq"
 )
 
-var dbInfo = fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s", host, port, user, dbname, sslmode)
+var (
+	DBCon  *sql.DB
+	onceDb sync.Once
 
-func createTables() {
-	createTableCity()
-	createTableUsers()
+	dbInfo = fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s", host, port, user, dbname, sslmode)
+)
+
+// func InitDatabase(DBCon *sql.DB) {
+// 	DBCon, err := sql.Open("postgres", dbInfo)
+// 	if err != nil {
+// 		panic("Can not init database")
+// 	}
+
+// 	createTables(DBCon)
+// 	fillCityInfoMap(DBCon)
+// }
+
+func createTables(db *sql.DB) {
+	createTableCity(db)
+	createTableUsers(db)
 }
 
-func createTableCity() error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		fmt.Printf("Can not connect to db\n")
-		return err
-	}
-	defer db.Close()
-
-	if _, err = db.Exec(`CREATE TABLE cities(ID SERIAL PRIMARY KEY, NAME TEXT, LONGITUDE REAL, LATITUDE REAL);`); err != nil {
+func createTableCity(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE cities(ID SERIAL PRIMARY KEY, NAME TEXT, LONGITUDE REAL, LATITUDE REAL);`); err != nil {
 		return err
 	} else {
 		fmt.Printf("Table cities was created")
@@ -33,44 +42,31 @@ func createTableCity() error {
 	return nil
 }
 
-func createTableUsers() error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		fmt.Printf("Can not connect to db\n")
-		return err
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`CREATE TABLE users(ID SERIAL PRIMARY KEY, USER_ID BIGINT, CITY_ID INT);`)
+func createTableUsers(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE users(ID SERIAL PRIMARY KEY, USER_ID BIGINT, CITY_ID INT);`)
 	return err
 }
 
 func insertInitCities(db *sql.DB) error {
-	data := `INSERT INTO cities (name, longitude, latitude) VALUES($1, $2, $3);`
-	_, err := db.Exec(data, "Нижний Новгород", 44.002, 56.3287)
+	req := `INSERT INTO cities (name, longitude, latitude) VALUES($1, $2, $3);`
+	_, err := db.Exec(req, "Нижний Новгород", 44.002, 56.3287)
 	if err != nil {
 		return err
 	}
-	if _, err = db.Exec(data, "Москва", 37.6173, 55.7558); err != nil {
+	if _, err = db.Exec(req, "Москва", 37.6173, 55.7558); err != nil {
 		return err
 	}
-	if _, err = db.Exec(data, "Санкт-Петербург", 30.3351, 59.9343); err != nil {
+	if _, err = db.Exec(req, "Санкт-Петербург", 30.3351, 59.9343); err != nil {
 		return err
 	}
-	if _, err = db.Exec(data, "Казань", 49.1233, 55.7879); err != nil {
+	if _, err = db.Exec(req, "Казань", 49.1233, 55.7879); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func addNewUser(user_id int64, city_id int) error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
+func addNewUser(db *sql.DB, user_id int64, city_id int) error {
 	rows, err := db.Query(fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
 	if err != nil {
 		return nil
@@ -100,13 +96,7 @@ func addNewUser(user_id int64, city_id int) error {
 	return nil
 }
 
-func switchUserCity(user_id int64, new_city_id int) error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
+func switchUserCity(db *sql.DB, user_id int64, new_city_id int) error {
 	rows, err := db.Query(fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
 	if err != nil {
 		return nil
@@ -136,30 +126,8 @@ func switchUserCity(user_id int64, new_city_id int) error {
 	return nil
 }
 
-func getCityCoordinates(chat_id int64) (Coordinates, error) {
-	var coord Coordinates
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return Coordinates{}, err
-	}
-	defer db.Close()
-
-	row := db.QueryRow(fmt.Sprintf("SELECT longitude, latitude FROM cities WHERE id=(SELECT city_id FROM users WHERE user_id=%v);", chat_id))
-	err = row.Scan(&coord.lat, &coord.lon)
-	if err != nil {
-		return Coordinates{}, err
-	}
-
-	return coord, nil
-}
-
-func getCityIds() ([]CityId, error) {
+func getCityIds(db *sql.DB) ([]CityId, error) {
 	out := make([]CityId, 0, MaxCityCnt)
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
 
 	rows, err := db.Query("SELECT id FROM cities")
 	if err != nil {
@@ -178,16 +146,11 @@ func getCityIds() ([]CityId, error) {
 	return out, nil
 }
 
-func fillCityInfoMap() {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		panic("fillCityIdNameMap: Error")
-	}
-	defer db.Close()
-
+func fillCityInfoMap(db *sql.DB) {
 	rows, err := db.Query("SELECT id, name, longitude, latitude FROM cities")
 	if err != nil {
-		panic("fillCityIdNameMap: Error")
+		fmt.Printf(err.Error())
+		panic("fillCityIdNameMap: Error modify db - ")
 	}
 	defer rows.Close()
 
@@ -197,7 +160,7 @@ func fillCityInfoMap() {
 		var lon float64
 		var lat float64
 		if err := rows.Scan(&id, &name, &lon, &lat); err != nil {
-			panic("fillCityIdNameMap: Error")
+			panic("fillCityIdNameMap: Error reading db")
 		}
 		CityInfoMap[id] = CityInfo{name, Coordinates{lon, lat}}
 	}

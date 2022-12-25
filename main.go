@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -18,8 +19,14 @@ const (
 )
 
 func main() {
-	createTables()
-	fillCityInfoMap()
+	DBCon, err := sql.Open("postgres", dbInfo)
+	if err != nil {
+		panic("Can not init database")
+	}
+
+	createTables(DBCon)
+	fillCityInfoMap(DBCon)
+
 	initWCache()
 	fmt.Println(&weatherCache)
 
@@ -53,8 +60,8 @@ func main() {
 		case update := <-updates:
 			if update.Message == nil {
 
-				msg := createAnswer(update)
-				if _, err := bot.Send(msg); err != nil {
+				msg_creator := createAnswer(update)
+				if _, err := bot.Send(msg_creator()); err != nil {
 					panic(err)
 				}
 			}

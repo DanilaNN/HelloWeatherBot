@@ -20,7 +20,7 @@ var (
 func initWCache() {
 	once.Do(func() {
 		weatherCache.cities = make(map[CityId]WValues)
-		cityNames, err := getCityIds()
+		cityNames, err := getCityIds(DBCon)
 		if err != nil {
 			panic("Can not read List of cities from Database")
 		}

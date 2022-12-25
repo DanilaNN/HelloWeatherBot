@@ -8,10 +8,10 @@ import (
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
 
-func createAnswer(update tgbotapi.Update) func(update tgbotapi.Update) tgbotapi.MessageConfig {
+func createAnswer(update tgbotapi.Update) func() tgbotapi.MessageConfig {
 	var prevMsgType MsgType = Default
 
-	return func(update tgbotapi.Update) tgbotapi.MessageConfig {
+	return func() tgbotapi.MessageConfig {
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
 		msg.ReplyToMessageID = update.Message.MessageID
 
@@ -58,7 +58,7 @@ func createAnswer(update tgbotapi.Update) func(update tgbotapi.Update) tgbotapi.
 					b.WriteString(CityInfoMap[CityId(id)].name)
 					b.WriteString("\n")
 					b.WriteString("Чтобы получить прогноз погоды пришлите любой текст\n")
-					addNewUser(update.Message.Chat.ID, id)
+					addNewUser(DBCon, update.Message.Chat.ID, id)
 					prevMsgType = Default
 				}
 			case Switch:
@@ -79,7 +79,7 @@ func createAnswer(update tgbotapi.Update) func(update tgbotapi.Update) tgbotapi.
 					b.WriteString("\n")
 					b.WriteString("Чтобы получить прогноз погоды пришлите любой текст\n")
 					fmt.Printf("Update user %v with city %v!\n", update.Message.Chat.ID, id)
-					err = switchUserCity(update.Message.Chat.ID, id)
+					err = switchUserCity(DBCon, update.Message.Chat.ID, id)
 					if err != nil {
 						fmt.Printf("Can't update user with new city!\n")
 					} else {
