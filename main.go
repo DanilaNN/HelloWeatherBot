@@ -14,8 +14,8 @@ type MsgType int
 
 const (
 	Start   MsgType = 0
-	Switch          = 1
-	Default         = 2
+	Switch  MsgType = 1
+	Default MsgType = 2
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	createTables(DBCon)
 	fillCityInfoMap(DBCon)
 
-	initWCache()
+	initWCache(DBCon)
 	fmt.Println(&weatherCache)
 
 	bot, err := tgbotapi.NewBotAPI(TELEGRAM_TOKEN)
@@ -50,7 +50,7 @@ func main() {
 	// Start polling Telegram for updates.
 	updates, _ := bot.GetUpdatesChan(updateConfig)
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(UPDATE_W_CACHE_PERIOD * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -58,8 +58,7 @@ func main() {
 		case <-ticker.C:
 			updateWeatherCache()
 		case update := <-updates:
-			if update.Message == nil {
-
+			if update.Message != nil {
 				msg_creator := createAnswer(update)
 				if _, err := bot.Send(msg_creator()); err != nil {
 					panic(err)

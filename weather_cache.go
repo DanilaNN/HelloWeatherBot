@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 )
@@ -17,10 +18,13 @@ var (
 	once         sync.Once
 )
 
-func initWCache() {
+func initWCache(db *sql.DB) {
 	once.Do(func() {
 		weatherCache.cities = make(map[CityId]WValues)
-		cityNames, err := getCityIds(DBCon)
+		if db == nil {
+			panic("DABUKA Bad db ptr")
+		}
+		cityNames, err := getCityIds(db)
 		if err != nil {
 			panic("Can not read List of cities from Database")
 		}
