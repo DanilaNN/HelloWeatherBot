@@ -59,7 +59,7 @@ func createAnswer(db *sql.DB) func(update tgbotapi.Update) tgbotapi.MessageConfi
 					b.WriteString(CityInfoMap[CityId(id)].name)
 					b.WriteString("\n")
 					b.WriteString("Чтобы получить прогноз погоды пришлите любой текст\n")
-					addNewUser(db, update.Message.Chat.ID, id)
+					addNewUser(db, UserId(update.Message.Chat.ID), CityId(id))
 					prevMsgType = Default
 				}
 			case Switch:
@@ -80,7 +80,7 @@ func createAnswer(db *sql.DB) func(update tgbotapi.Update) tgbotapi.MessageConfi
 					b.WriteString("\n")
 					b.WriteString("Чтобы получить прогноз погоды пришлите любой текст\n")
 					fmt.Printf("Update user %v with city %v!\n", update.Message.Chat.ID, id)
-					err = switchUserCity(db, update.Message.Chat.ID, id)
+					err = switchUserCity(db, UserId(update.Message.Chat.ID), CityId(id))
 					if err != nil {
 						fmt.Printf("Can't update user with new city!\n")
 					} else {

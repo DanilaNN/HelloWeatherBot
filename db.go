@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -19,7 +20,10 @@ func createTables(db *sql.DB) {
 }
 
 func createTableCity(db *sql.DB) error {
-	if _, err := db.Exec(`CREATE TABLE cities(ID SERIAL PRIMARY KEY, NAME TEXT, LONGITUDE REAL, LATITUDE REAL);`); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel()
+
+	if _, err := db.ExecContext(ctx, `CREATE TABLE cities(ID SERIAL PRIMARY KEY, NAME TEXT, LONGITUDE REAL, LATITUDE REAL);`); err != nil {
 		return err
 	} else {
 		fmt.Printf("Table cities was created")
@@ -31,31 +35,40 @@ func createTableCity(db *sql.DB) error {
 }
 
 func createTableUsers(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE users(ID SERIAL PRIMARY KEY, USER_ID BIGINT, CITY_ID INT);`)
+	ctx, cancel := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel()
+
+	_, err := db.ExecContext(ctx, `CREATE TABLE users(ID SERIAL PRIMARY KEY, USER_ID BIGINT, CITY_ID INT);`)
 	return err
 }
 
 func insertInitCities(db *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), DB_TIMEOUT*4)
+	defer cancel()
+
 	req := `INSERT INTO cities (name, longitude, latitude) VALUES($1, $2, $3);`
-	_, err := db.Exec(req, "Нижний Новгород", 44.002, 56.3287)
+	_, err := db.ExecContext(ctx, req, "Нижний Новгород", 44.002, 56.3287)
 	if err != nil {
 		return err
 	}
-	if _, err = db.Exec(req, "Москва", 37.6173, 55.7558); err != nil {
+	if _, err = db.ExecContext(ctx, req, "Москва", 37.6173, 55.7558); err != nil {
 		return err
 	}
-	if _, err = db.Exec(req, "Санкт-Петербург", 30.3351, 59.9343); err != nil {
+	if _, err = db.ExecContext(ctx, req, "Санкт-Петербург", 30.3351, 59.9343); err != nil {
 		return err
 	}
-	if _, err = db.Exec(req, "Казань", 49.1233, 55.7879); err != nil {
+	if _, err = db.ExecContext(ctx, req, "Казань", 49.1233, 55.7879); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func addNewUser(db *sql.DB, user_id int64, city_id int) error {
-	rows, err := db.Query(fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
+func addNewUser(db *sql.DB, user_id UserId, city_id CityId) error {
+	ctx_1, cancel_1 := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel_1()
+
+	rows, err := db.QueryContext(ctx_1, fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
 	if err != nil {
 		return nil
 	}
@@ -74,8 +87,10 @@ func addNewUser(db *sql.DB, user_id int64, city_id int) error {
 		}
 	}
 
+	ctx_2, cancel_2 := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel_2()
 	data := `INSERT INTO users (user_id, city_id) VALUES($1, $2);`
-	_, err = db.Exec(data, user_id, city_id)
+	_, err = db.ExecContext(ctx_2, data, user_id, city_id)
 	if err != nil {
 		fmt.Printf("Can not insert user: user_id=%v, city_id=%v", user_id, city_id)
 		return err
@@ -85,8 +100,11 @@ func addNewUser(db *sql.DB, user_id int64, city_id int) error {
 	return nil
 }
 
-func switchUserCity(db *sql.DB, user_id int64, new_city_id int) error {
-	rows, err := db.Query(fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
+func switchUserCity(db *sql.DB, user_id UserId, new_city_id CityId) error {
+	ctx_1, cancel_1 := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel_1()
+
+	rows, err := db.QueryContext(ctx_1, fmt.Sprintf("SELECT exists (SELECT * FROM users WHERE user_id = %v  LIMIT 1);", user_id))
 	if err != nil {
 		return nil
 	}
@@ -96,7 +114,7 @@ func switchUserCity(db *sql.DB, user_id int64, new_city_id int) error {
 		if err := rows.Scan(&user_exist); err != nil {
 			return err
 		}
-		if user_exist == true {
+		if user_exist {
 			fmt.Printf("User not exist\n")
 			break
 		} else {
@@ -105,12 +123,17 @@ func switchUserCity(db *sql.DB, user_id int64, new_city_id int) error {
 		}
 	}
 
+	ctx_2, cancel_2 := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel_2()
+
 	data := `UPDATE users SET city_id=$1 WHERE user_id=$2;`
-	_, err = db.Exec(data, new_city_id, user_id)
+	_, err = db.ExecContext(ctx_2, data, new_city_id, user_id)
 	if err != nil {
 		fmt.Printf("Can't update user: user_id=%v, city_id=%v\n", new_city_id, user_id)
 		return err
 	}
+
+	UserCityMap[user_id] = new_city_id
 
 	return nil
 }
@@ -118,7 +141,10 @@ func switchUserCity(db *sql.DB, user_id int64, new_city_id int) error {
 func getCityIds(db *sql.DB) ([]CityId, error) {
 	out := make([]CityId, 0, MaxCityCnt)
 
-	rows, err := db.Query("SELECT id FROM cities")
+	ctx, cancel := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, "SELECT id FROM cities")
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +162,10 @@ func getCityIds(db *sql.DB) ([]CityId, error) {
 }
 
 func fillMapsFromDb(db *sql.DB) {
-	rows, err := db.Query("SELECT id, name, longitude, latitude FROM cities")
+	ctx, cancel := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, "SELECT id, name, longitude, latitude FROM cities")
 	if err != nil {
 		panic("fillCityIdNameMap: Error reading cities table")
 	}
@@ -153,7 +182,10 @@ func fillMapsFromDb(db *sql.DB) {
 		CityInfoMap[id] = CityInfo{name, Coordinates{lon, lat}}
 	}
 
-	rows, err = db.Query("SELECT user_id, city_id FROM users")
+	ctx_2, cancel_2 := context.WithTimeout(context.Background(), DB_TIMEOUT)
+	defer cancel_2()
+
+	rows, err = db.QueryContext(ctx_2, "SELECT user_id, city_id FROM users")
 	if err != nil {
 		panic("fillCityIdNameMap: Error reading users table")
 	}
