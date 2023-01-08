@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
 )
 
 type SearchResults struct {
@@ -31,36 +34,36 @@ type WeatherInfo struct {
 }
 
 func getWeather(coord Coordinates) WValues {
-	// client := &http.Client{}
-	// req_str := fmt.Sprintf("https://api.weather.yandex.ru/v2/informers?lat=%v&lon=%v&[lang=ru_RU]", coord.lat, coord.lon)
+	client := &http.Client{}
+	req_str := fmt.Sprintf("https://api.weather.yandex.ru/v2/informers?lat=%v&lon=%v&[lang=ru_RU]", coord.lat, coord.lon)
 	fmt.Printf("Weather Request: lat %v, lon %v\n", coord.lat, coord.lon)
-	// req, err := http.NewRequest("GET", req_str, nil)
-	// if err != nil {
-	// 	fmt.Printf("Bad Link\n")
-	// }
-	// req.Header.Add("X-Yandex-API-Key", YANDEX_API_KEY)
-	// resp, err := client.Do(req)
-	// if err != nil {
-	// 	fmt.Printf("Bad request\n")
-	// }
-	// contents, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// var sr SearchResults
-	// err = json.Unmarshal(contents, &sr)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// var w_info WeatherInfo
-	// err = json.Unmarshal(sr.Fact, &w_info)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	req, err := http.NewRequest("GET", req_str, nil)
+	if err != nil {
+		fmt.Printf("Bad Link\n")
+	}
+	req.Header.Add("X-Yandex-API-Key", YANDEX_API_KEY)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Bad request\n")
+	}
+	contents, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var sr SearchResults
+	err = json.Unmarshal(contents, &sr)
+	if err != nil {
+		panic(err)
+	}
+	var w_info WeatherInfo
+	err = json.Unmarshal(sr.Fact, &w_info)
+	if err != nil {
+		panic(err)
+	}
 
 	out := WValues{}
-	// out.temp = w_info.Temp
-	// out.feelsLike = w_info.Feels_like
-	// out.windSpeed = w_info.Wind_speed
+	out.temp = w_info.Temp
+	out.feelsLike = w_info.Feels_like
+	out.windSpeed = w_info.Wind_speed
 	return out
 }

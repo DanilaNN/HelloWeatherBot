@@ -8,8 +8,6 @@ import (
 	tgbotapi "github.com/Syfaro/telegram-bot-api"
 )
 
-// One connection to database
-
 type MsgType int
 
 const (
@@ -25,7 +23,7 @@ func main() {
 	}
 
 	createTables(DBCon)
-	fillCityInfoMap(DBCon)
+	fillMapsFromDb(DBCon)
 
 	initWCache(DBCon)
 	fmt.Println(&weatherCache)
@@ -52,6 +50,7 @@ func main() {
 
 	ticker := time.NewTicker(UPDATE_W_CACHE_PERIOD * time.Second)
 	defer ticker.Stop()
+	msg_creator := createAnswer(DBCon)
 
 	for {
 		select {
@@ -59,8 +58,7 @@ func main() {
 			updateWeatherCache()
 		case update := <-updates:
 			if update.Message != nil {
-				msg_creator := createAnswer(update)
-				if _, err := bot.Send(msg_creator()); err != nil {
+				if _, err := bot.Send(msg_creator(update)); err != nil {
 					panic(err)
 				}
 			}

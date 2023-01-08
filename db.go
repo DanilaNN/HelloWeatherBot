@@ -3,27 +3,15 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"sync"
 
 	_ "github.com/lib/pq"
 )
 
 var (
-	DBCon  *sql.DB
-	onceDb sync.Once
+	DBCon *sql.DB
 
 	dbInfo = fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s", host, port, user, dbname, sslmode)
 )
-
-// func InitDatabase(DBCon *sql.DB) {
-// 	DBCon, err := sql.Open("postgres", dbInfo)
-// 	if err != nil {
-// 		panic("Can not init database")
-// 	}
-
-// 	createTables(DBCon)
-// 	fillCityInfoMap(DBCon)
-// }
 
 func createTables(db *sql.DB) {
 	createTableCity(db)
@@ -77,11 +65,11 @@ func addNewUser(db *sql.DB, user_id int64, city_id int) error {
 		if err := rows.Scan(&user_exist); err != nil {
 			return err
 		}
-		if user_exist == true {
+		if user_exist {
 			fmt.Printf("User exist\n")
 			return nil
 		} else {
-			fmt.Printf("User not exist\n")
+			fmt.Printf("User not exist - add new user\n")
 			break
 		}
 	}
@@ -93,6 +81,7 @@ func addNewUser(db *sql.DB, user_id int64, city_id int) error {
 		return err
 	}
 
+	UserCityMap[UserId(user_id)] = CityId(city_id)
 	return nil
 }
 
@@ -146,11 +135,10 @@ func getCityIds(db *sql.DB) ([]CityId, error) {
 	return out, nil
 }
 
-func fillCityInfoMap(db *sql.DB) {
+func fillMapsFromDb(db *sql.DB) {
 	rows, err := db.Query("SELECT id, name, longitude, latitude FROM cities")
 	if err != nil {
-		fmt.Printf(err.Error())
-		panic("fillCityIdNameMap: Error modify db - ")
+		panic("fillCityIdNameMap: Error reading cities table")
 	}
 	defer rows.Close()
 
@@ -160,8 +148,21 @@ func fillCityInfoMap(db *sql.DB) {
 		var lon float64
 		var lat float64
 		if err := rows.Scan(&id, &name, &lon, &lat); err != nil {
-			panic("fillCityIdNameMap: Error reading db")
+			panic("fillMapsFromDb: Error reading cities table")
 		}
 		CityInfoMap[id] = CityInfo{name, Coordinates{lon, lat}}
+	}
+
+	rows, err = db.Query("SELECT user_id, city_id FROM users")
+	if err != nil {
+		panic("fillCityIdNameMap: Error reading users table")
+	}
+	for rows.Next() {
+		var user_id UserId
+		var city_id CityId
+		if err := rows.Scan(&user_id, &city_id); err != nil {
+			panic("fillMapsFromDb: Error reading users table")
+		}
+		UserCityMap[user_id] = city_id
 	}
 }
